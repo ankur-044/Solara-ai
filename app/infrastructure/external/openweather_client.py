@@ -5,21 +5,22 @@ async def get_forecast(lat, lon):
     API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
     if not API_KEY:
-        raise ValueError("OPENWEATHER_API_KEY missing")
+        print("⚠️ Missing OPENWEATHER_API_KEY")
+        return {"list": []}
 
-    url = "https://api.openweathermap.org/data/2.5/forecast"
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                "https://api.openweathermap.org/data/2.5/forecast",
+                params={
+                    "lat": lat,
+                    "lon": lon,
+                    "appid": API_KEY,
+                    "units": "metric"
+                }
+            )
+        return response.json()
 
-    params = {
-        "lat": lat,
-        "lon": lon,
-        "appid": API_KEY,
-        "units": "metric"
-    }
-
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        response = await client.get(url, params=params)
-
-    if response.status_code != 200:
-        raise Exception(f"OpenWeather API failed: {response.text}")
-
-    return response.json()
+    except Exception as e:
+        print("OpenWeather error:", str(e))
+        return {"list": []}
