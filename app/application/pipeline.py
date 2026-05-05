@@ -6,8 +6,16 @@ from app.domain.services.solar_window_service import generate_solar_windows
 from app.domain.services.forecasting_service import generate_analysis
 from app.domain.services.device_optimizer import optimize_devices
 
+# Helper to force any object into a dictionary to prevent '.get' crashes
+def ensure_dict(obj):
+    if isinstance(obj, dict):
+        return obj
+    if isinstance(obj, list) and len(obj) > 0:
+        # If it's a list, take the first element and check again
+        return ensure_dict(obj[0])
+    return {}
 
-# 🔥 SAFE ML WRAPPER (prevents startup crash)
+# 🔥 SAFE ML WRAPPER
 def safe_predict(data):
     try:
         from app.infrastructure.ml.predictor import predict_irradiance
@@ -16,72 +24,94 @@ def safe_predict(data):
         print("⚠️ ML ERROR:", str(e))
         return 50  # fallback value
 
-
-# app/application/pipeline.py
-
-# app/application/pipeline.py
-
-# app/application/pipeline.py
-
 async def run_pipeline(data):
     city = data.city
 
     try:
-        # 1. Get Coordinates
+        # =========================
+        # STEP 1: Get Coordinates
+        # =========================
         lat, lon = await get_lat_lon(city)
         if lat is None or lon is None:
             raise Exception(f"Coordinates not found for {city}")
 
-        # 2. Weather Data
-        weather = await get_weather_data(lat, lon)
+        # =========================
+        # STEP 2: Weather Data
+        # =========================
+        weather_raw = await get_weather_data(lat, lon)
         
-        # --- FIX: Handle if weather is a list or a dict ---
-        if isinstance(weather, list) and len(weather) > 0:
-            weather = weather[0] # Take first item if it's a list
+        # CRITICAL FIX: Force weather to be a dict before any .get calls
+        weather = ensure_dict(weather_raw)
+
+        temp = weather.get("temp", 25)
+        cloud = weather.get("cloud", 0)
+        humidity = weather.get("humidity", 50)
         
-        # Safely extract values
-        temp = weather.get("temp", 25) if isinstance(weather, dict) else 25
-        cloud = weather.get("cloud", 0) if isinstance(weather, dict) else 0
-        humidity = weather.get("humidity", 50) if isinstance(weather, dict) else 50
+        # Safe extraction for UV
+        raw_uv = weather.get("uv")
+        if raw_uv is None:
+            raw_uv = temp / 3 # Logical fallback
+        uv_index = round(float(raw_uv), 1) 
         
-        uv_index = round(float(weather.get("uv", temp / 3) if isinstance(weather, dict) else 5.0), 1) 
         aod_value = 0.12 + (humidity / 1000) 
 
-        # 3. ML Prediction
-        irradiance = safe_predict({"temp": temp, "cloud": cloud, "humidity": humidity})
+        # =========================
+        # STEP 3: ML Prediction
+        # =========================
+        irradiance = safe_predict({
+            "temp": temp,
+            "cloud": cloud,
+            "humidity": humidity
+        })
 
-        # 4. Forecast Data
+        # =========================
+        # STEP 4: Forecast Data
+        # =========================
         forecast_response = await get_forecast(lat, lon)
         
-        # --- FIX: Defensive check for forecast structure ---
-        forecast_list = []
+        # OpenWeather returns a dict with a "list" key
         if isinstance(forecast_response, dict):
             forecast_list = forecast_response.get("list", [])
         elif isinstance(forecast_response, list):
             forecast_list = forecast_response
+        else:
+            forecast_list = []
 
         ghi_forecast = []
         for entry in forecast_list[:8]:
-            if not isinstance(entry, dict): continue
+            # Ensure the entry inside the list is a dict
+            clean_entry = ensure_dict(entry)
+            if not clean_entry: continue
             
-            time_str = entry.get("dt_txt", "00:00:00").split(" ")[1][:5]
-            f_main = entry.get("main", {})
+            # Extract time string safely
+            dt_txt = clean_entry.get("dt_txt", "2024-01-01 00:00:00")
+            time_str = dt_txt.split(" ")[1][:5] if " " in dt_txt else "00:00"
+            
+            f_main = ensure_dict(clean_entry.get("main", {}))
+            f_clouds = ensure_dict(clean_entry.get("clouds", {}))
+            
             f_temp = f_main.get("temp", temp)
-            f_cloud = entry.get("clouds", {}).get("all", cloud)
+            f_cloud = f_clouds.get("all", cloud)
             f_hum = f_main.get("humidity", humidity)
             
             p_yield = safe_predict({"temp": f_temp, "cloud": f_cloud, "humidity": f_hum})
             
+            # Mapped specifically for Recharts (t and v)
             ghi_forecast.append({
                 "t": time_str,
                 "v": round(float(p_yield), 2)
             })
 
-        # 5. Domain Logic
+        # =========================
+        # STEP 5, 6, 7: Domain Logic
+        # =========================
         windows = generate_solar_windows(forecast_list)
         analysis = generate_analysis(irradiance, cloud, humidity)
         device_plan = optimize_devices(windows, irradiance)
 
+        # =========================
+        # FINAL CLEAN RESPONSE
+        # =========================
         return {
             "location": city.upper(),
             "lat": lat,
@@ -98,9 +128,9 @@ async def run_pipeline(data):
         }
 
     except Exception as e:
-        print("❌ PIPELINE ERROR:", str(e))
-        # Return the error message so the Frontend can show it
+        print(f"❌ PIPELINE FATAL ERROR: {str(e)}")
         return {
             "error": str(e),
-            "location": city
+            "location": city,
+            "status": "failed"
         }
