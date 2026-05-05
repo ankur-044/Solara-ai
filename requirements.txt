@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+
+# ML & Data
+numpy
+pandas
+scikit-learn
+tensorflow
+
+# API & utils
+requests
+python-dotenv
+
+# Optional but recommended
+pydantic
