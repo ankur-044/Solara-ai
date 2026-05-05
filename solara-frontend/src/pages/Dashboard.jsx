@@ -23,7 +23,7 @@ export default function Dashboard() {
 
   const fetchRealData = async (targetCity) => {
     try {
-      const res = await axios.post("http://localhost:8000/api/v1/predict", { 
+      const res = await axios.post("https://solara-ai-otz6.onrender.com/api/v1/predict", { 
         city: targetCity 
       });
       setData(res.data);

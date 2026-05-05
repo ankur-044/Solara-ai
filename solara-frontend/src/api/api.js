@@ -2,7 +2,7 @@ import axios from "axios";
 
 const API = axios.create({
   // THE ONLY PLACE YOU DEFINE THE PORT
-  baseURL: "http://localhost:8000", 
+  baseURL: "https://solara-ai-otz6.onrender.com/api/v1/predict", 
 });
 
 export const predictSolar = async (city) => {
