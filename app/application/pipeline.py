@@ -21,49 +21,63 @@ def safe_predict(data):
 
 # app/application/pipeline.py
 
+# app/application/pipeline.py
+
 async def run_pipeline(data):
     city = data.city
 
     try:
+        # 1. Get Coordinates
         lat, lon = await get_lat_lon(city)
         if lat is None or lon is None:
-            raise Exception("Invalid coordinates")
+            raise Exception(f"Coordinates not found for {city}")
 
+        # 2. Weather Data
         weather = await get_weather_data(lat, lon)
-        temp = weather.get("temp", 25)
-        cloud = weather.get("cloud", 0)
-        humidity = weather.get("humidity", 50)
         
-        uv_index = round(float(weather.get("uv", temp / 3)), 1) 
+        # --- FIX: Handle if weather is a list or a dict ---
+        if isinstance(weather, list) and len(weather) > 0:
+            weather = weather[0] # Take first item if it's a list
+        
+        # Safely extract values
+        temp = weather.get("temp", 25) if isinstance(weather, dict) else 25
+        cloud = weather.get("cloud", 0) if isinstance(weather, dict) else 0
+        humidity = weather.get("humidity", 50) if isinstance(weather, dict) else 50
+        
+        uv_index = round(float(weather.get("uv", temp / 3) if isinstance(weather, dict) else 5.0), 1) 
         aod_value = 0.12 + (humidity / 1000) 
 
+        # 3. ML Prediction
         irradiance = safe_predict({"temp": temp, "cloud": cloud, "humidity": humidity})
 
-        # =========================
-        # FIX: OpenWeather returns a dict with a "list" key
-        # =========================
+        # 4. Forecast Data
         forecast_response = await get_forecast(lat, lon)
         
-        # OpenWeather structure is usually {"list": [...]} 
-        # We need to extract that list for the graph to work
-        forecast_list = forecast_response.get("list", []) if isinstance(forecast_response, dict) else []
-        
+        # --- FIX: Defensive check for forecast structure ---
+        forecast_list = []
+        if isinstance(forecast_response, dict):
+            forecast_list = forecast_response.get("list", [])
+        elif isinstance(forecast_response, list):
+            forecast_list = forecast_response
+
         ghi_forecast = []
-        # Take the next 8 points (approx 24 hours)
         for entry in forecast_list[:8]:
-            time_str = entry.get("dt_txt", "").split(" ")[1][:5]
-            f_temp = entry.get("main", {}).get("temp", temp)
+            if not isinstance(entry, dict): continue
+            
+            time_str = entry.get("dt_txt", "00:00:00").split(" ")[1][:5]
+            f_main = entry.get("main", {})
+            f_temp = f_main.get("temp", temp)
             f_cloud = entry.get("clouds", {}).get("all", cloud)
-            f_hum = entry.get("main", {}).get("humidity", humidity)
+            f_hum = f_main.get("humidity", humidity)
             
             p_yield = safe_predict({"temp": f_temp, "cloud": f_cloud, "humidity": f_hum})
             
-            # CRITICAL: Keys must match Dashboard.jsx (t and v)
             ghi_forecast.append({
                 "t": time_str,
                 "v": round(float(p_yield), 2)
             })
 
+        # 5. Domain Logic
         windows = generate_solar_windows(forecast_list)
         analysis = generate_analysis(irradiance, cloud, humidity)
         device_plan = optimize_devices(windows, irradiance)
@@ -77,7 +91,7 @@ async def run_pipeline(data):
             "cloud_cover": cloud,
             "temperature": temp,
             "aod": round(aod_value, 2),
-            "ghi_forecast": ghi_forecast, # This now contains 't' and 'v'
+            "ghi_forecast": ghi_forecast,
             "analysis": analysis,
             "solar_windows": windows,
             "device_plan": device_plan
@@ -85,4 +99,8 @@ async def run_pipeline(data):
 
     except Exception as e:
         print("❌ PIPELINE ERROR:", str(e))
-        return {"error": str(e), "location": city}
+        # Return the error message so the Frontend can show it
+        return {
+            "error": str(e),
+            "location": city
+        }
