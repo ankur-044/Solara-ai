@@ -1,17 +1,20 @@
 import axios from "axios";
 
+// This is the live URL from your Render Dashboard screenshot
+const RENDER_URL = "https://solara-ai-otz6.onrender.com"; 
+
 const API = axios.create({
-  // THE ONLY PLACE YOU DEFINE THE PORT
-  baseURL: "https://solara-ai-otz6.onrender.com/api/v1/predict", 
+  baseURL: RENDER_URL,
 });
 
 export const predictSolar = async (city) => {
   try {
-    // We send the city in the body as per your backend requirement
     const response = await API.post("/api/v1/predict", { city });
-    return response.data; // We return the data directly
+    return response.data;
   } catch (error) {
-    console.error("API Call Error:", error);
+    console.error("Render API Sync Error:", error);
     throw error;
   }
 };
+
+export default API;

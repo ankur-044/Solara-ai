@@ -17,6 +17,8 @@ def safe_predict(data):
         return 50  # fallback value
 
 
+# app/application/pipeline.py
+
 async def run_pipeline(data):
     city = data.city
 
@@ -34,12 +36,18 @@ async def run_pipeline(data):
         # =========================
         weather = await get_weather_data(lat, lon)
 
+        # Extract values for the Dashboard metrics
         temp = weather.get("temp", 25)
         cloud = weather.get("cloud", 0)
         humidity = weather.get("humidity", 50)
+        
+        # Calculate UV and AOD (Estimate if your API doesn't provide them)
+        # Usually, UV is ~GHI / 25. AOD is usually ~0.1 to 0.3
+        uv_index = round(float(weather.get("uv", temp / 3)), 1) 
+        aod_value = 0.12 + (humidity / 1000) 
 
         # =========================
-        # STEP 3: ML Prediction (SAFE)
+        # STEP 3: ML Prediction
         # =========================
         irradiance = safe_predict({
             "temp": temp,
@@ -48,14 +56,32 @@ async def run_pipeline(data):
         })
 
         # =========================
-        # STEP 4: Forecast Data
+        # STEP 4: Forecast Data (For the Graph)
         # =========================
-        forecast = await get_forecast(lat, lon)
+        forecast_raw = await get_forecast(lat, lon)
+        
+        # Transform raw forecast into the 'ghi_forecast' array for the Recharts graph
+        # This assumes forecast_raw is a list of objects with 'dt_txt' and 'main'
+        ghi_forecast = []
+        if isinstance(forecast_raw, list):
+            for entry in forecast_raw[:8]:  # Get next 8 intervals (approx 24h)
+                time_str = entry.get("dt_txt", "").split(" ")[1][:5] # Get "HH:mm"
+                # Use your ML model to predict yield for each future time slot
+                f_temp = entry.get("main", {}).get("temp", temp)
+                f_cloud = entry.get("clouds", {}).get("all", cloud)
+                f_hum = entry.get("main", {}).get("humidity", humidity)
+                
+                predicted_yield = safe_predict({"temp": f_temp, "cloud": f_cloud, "humidity": f_hum})
+                
+                ghi_forecast.append({
+                    "time": time_str,
+                    "yield": round(float(predicted_yield), 2)
+                })
 
         # =========================
         # STEP 5: Solar Windows
         # =========================
-        windows = generate_solar_windows(forecast)
+        windows = generate_solar_windows(forecast_raw)
 
         # =========================
         # STEP 6: Analysis
@@ -68,13 +94,18 @@ async def run_pipeline(data):
         device_plan = optimize_devices(windows, irradiance)
 
         # =========================
-        # FINAL RESPONSE
+        # FINAL UPDATED RESPONSE
         # =========================
         return {
-            "location": city,
+            "location": city.upper(),
             "lat": lat,
             "lon": lon,
             "irradiance": round(float(irradiance), 2),
+            "uv_index": uv_index,          # <--- ADDED
+            "cloud_cover": cloud,         # <--- ADDED
+            "temperature": temp,          # <--- ADDED
+            "aod": round(aod_value, 2),   # <--- ADDED
+            "ghi_forecast": ghi_forecast, # <--- ADDED (This enables the graph)
             "analysis": analysis,
             "solar_windows": windows,
             "device_plan": device_plan
