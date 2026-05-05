@@ -19,7 +19,7 @@ const translations = {
     mission: "मिशन", about: "विवरण", dashboard: "डैशबोर्ड", global: "ग्लोबल", settings: "सेटिंग्स",
     cmd_dash: "कमांड डैशबोर्ड", ghi: "GHI", uv: "यूवी इंडेक्स", cloud: "बादल", aod: "AOD", temp: "तापमान",
     peak: "अगला पीक", device_lib: "हार्डवेयर अनुकूलन लाइब्रेरी", alerts: "दक्षता अलर्ट",
-    predictive_title: "AI हाइब्रिड पूर्वानुमान (15-मिनट अंतराल)"
+    predictive_title: "AI हाइब्रिड पूर्वानुमान"
   }
 };
 
@@ -35,7 +35,7 @@ export const AppProvider = ({ children }) => {
   }, [theme]);
 
   const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'simple-light' : 'dark');
-  const t = (key) => (translations[language] && translations[language][key]) ? translations[language][key] : key;
+  const t = (key) => translations[language]?.[key] || key;
 
   return (
     <AppContext.Provider value={{ theme, toggleTheme, language, setLanguage, t }}>
