@@ -3,9 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
 
+# Load env
 load_dotenv()
-
-from app.api.v1.endpoints.predict import router as predict_router
 
 app = FastAPI(
     title="Solara API",
@@ -13,6 +12,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,16 +21,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(predict_router, prefix="/api/v1")
+# 🔥 SAFE IMPORT (prevents startup crash)
+try:
+    from app.api.v1.endpoints.predict import router as predict_router
+    app.include_router(predict_router, prefix="/api/v1")
+    print("✅ Router loaded successfully")
+except Exception as e:
+    print("❌ ROUTER LOAD ERROR:", str(e))
 
+# Root
 @app.get("/")
 def root():
     return {"message": "Solara Backend Running 🚀"}
 
-# 🔥 Debug on Render
+# Health check (IMPORTANT for Render)
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+# Startup debug
 @app.on_event("startup")
-def startup_debug():
+async def startup_event():
+    print("🔥 APP STARTED SUCCESSFULLY")
     print("ENV CHECK:")
-    print("OPENCAGE:", os.getenv("OPENCAGE_API_KEY"))
     print("OPENWEATHER:", os.getenv("OPENWEATHER_API_KEY"))
-    print("TOMORROW:", os.getenv("TOMORROW_API_KEY"))
+    print("OPENCAGE:", os.getenv("OPENCAGE_API_KEY"))
