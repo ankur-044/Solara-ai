@@ -1,13 +1,22 @@
-import requests
-from app.core.config import TOMORROW_API_KEY
+import httpx
+import os
 
 async def get_tomorrow_weather(lat, lon):
-    url = f"https://api.tomorrow.io/v4/weather/realtime?location={lat},{lon}&apikey={TOMORROW_API_KEY}"
+    API_KEY = os.getenv("TOMORROW_API_KEY")
 
-    response = requests.get(url)
-    data = response.json()
+    if not API_KEY:
+        raise ValueError("TOMORROW_API_KEY missing")
 
-    print("Tomorrow API Response:", data)  # DEBUG
+    url = "https://api.tomorrow.io/v4/weather/realtime"
+
+    params = {
+        "location": f"{lat},{lon}",
+        "apikey": API_KEY
+    }
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.get(url, params=params)
+        data = response.json()
 
     values = data.get("data", {}).get("values", {})
 

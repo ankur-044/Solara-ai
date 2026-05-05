@@ -1,30 +1,30 @@
-import requests
-from app.core.config import OPENCAGE_API_KEY
+import httpx
+import os
 
 async def get_lat_lon(city: str):
-    url = f"https://api.opencagedata.com/geocode/v1/json?q={city}&key={OPENCAGE_API_KEY}"
+    API_KEY = os.getenv("OPENCAGE_API_KEY")
 
-    response = requests.get(url)
-    
-    try:
+    if not API_KEY:
+        raise ValueError("OPENCAGE_API_KEY missing")
+
+    url = f"https://api.opencagedata.com/geocode/v1/json"
+
+    params = {
+        "q": city,
+        "key": API_KEY
+    }
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.get(url, params=params)
         data = response.json()
-    except:
-        raise Exception("Invalid response from OpenCage API")
 
-    print("🔍 Geocoding FULL Response:", data)  # DEBUG
-
-    # Check API error
     if data.get("status", {}).get("code") != 200:
         raise Exception(f"OpenCage API error: {data.get('status')}")
 
     results = data.get("results")
-
-    if not results or len(results) == 0:
+    if not results:
         raise Exception(f"No results found for city: {city}")
 
-    geometry = results[0].get("geometry")
+    geometry = results[0]["geometry"]
 
-    if not geometry:
-        raise Exception("Geometry missing in response")
-
-    return geometry.get("lat"), geometry.get("lng")
+    return geometry["lat"], geometry["lng"]

@@ -2,7 +2,7 @@ import httpx
 import os
 
 async def get_forecast(lat, lon):
-    API_KEY = os.getenv("OPENWEATHER_API_KEY")  # 🔥 move here
+    API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
     if not API_KEY:
         raise ValueError("OPENWEATHER_API_KEY missing")
@@ -16,10 +16,10 @@ async def get_forecast(lat, lon):
         "units": "metric"
     }
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=10.0) as client:
         response = await client.get(url, params=params)
 
-        if response.status_code != 200:
-            raise Exception(f"OpenWeather API failed: {response.text}")
+    if response.status_code != 200:
+        raise Exception(f"OpenWeather API failed: {response.text}")
 
-        return response.json()
+    return response.json()

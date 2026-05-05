@@ -1,18 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
 
-load_dotenv()
+print("🚀 Starting FastAPI app...")
 
 from app.api.v1.endpoints.predict import router as predict_router
 
 app = FastAPI(
     title="Solara API",
-    description="AI-driven Solar Optimization Backend",
     version="1.0.0"
 )
 
-# 🔥 VERY IMPORTANT FIX
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,7 +18,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Routes
 app.include_router(predict_router, prefix="/api/v1")
 
 @app.get("/")
