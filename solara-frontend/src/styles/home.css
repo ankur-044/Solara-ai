@@ -1,0 +1,24 @@
+.home {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+}
+
+.home h1 {
+  font-size: 60px;
+}
+
+.home p {
+  opacity: 0.8;
+}
+
+.home button {
+  padding: 12px 30px;
+  background: #00ffcc;
+  border: none;
+  border-radius: 30px;
+  cursor: pointer;
+}
