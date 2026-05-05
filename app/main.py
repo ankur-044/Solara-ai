@@ -1,14 +1,12 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-print("🚀 Starting FastAPI app...")
-
 from app.api.v1.endpoints.predict import router as predict_router
 
-app = FastAPI(
-    title="Solara API",
-    version="1.0.0"
-)
+app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
