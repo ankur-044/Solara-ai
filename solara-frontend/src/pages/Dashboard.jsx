@@ -21,25 +21,40 @@ export default function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const city = searchParams.get('city') || "kolkata";
 
-  const fetchRealData = async (targetCity) => {
-    try {
-      // CONNECTING TO YOUR LIVE RENDER BACKEND
-      const res = await axios.post("https://solara-ai-otz6.onrender.com/api/v1/predict", { 
-        city: targetCity 
-      });
-      console.log("ORBITAL_SYNC_SUCCESS:", res.data);
-      
-      if (res.data.error) {
-        setError(res.data.error);
-      } else {
-        setData(res.data);
-        setError(null);
+ const fetchRealData = async (targetCity) => {
+  try {
+
+    // CLEAR OLD ERROR FIRST
+    setError(null);
+
+    const res = await axios.post(
+      "https://solara-ai-otz6.onrender.com/api/v1/predict",
+      {
+        city: targetCity
       }
-    } catch (err) {
-      console.error("TELEMETRY_LINK_ERROR:", err);
-      setError("COMMUNICATION_FAILURE: CHECK RENDER SERVICE");
+    );
+
+    console.log("ORBITAL_SYNC_SUCCESS:", res.data);
+
+    // IF BACKEND SENDS ERROR
+    if (res.data.error) {
+      setError(res.data.error);
+      setData(null);
+      return;
     }
-  };
+
+    // SUCCESS
+    setData(res.data);
+    setError(null);
+
+  } catch (err) {
+
+    console.error("TELEMETRY_LINK_ERROR:", err);
+
+    setError("COMMUNICATION_FAILURE: CHECK RENDER SERVICE");
+    setData(null);
+  }
+};
 
   useEffect(() => {
     fetchRealData(city);
