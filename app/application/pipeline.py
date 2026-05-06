@@ -29,13 +29,30 @@ def safe_extract(obj, key, default=None):
 # SAFE ML PREDICTOR
 # =========================================================
 def safe_predict(data):
+
     try:
-        from app.infrastructure.ml.predictor import predict_irradiance
-        return predict_irradiance(data)
+
+        temp = float(data.get("temp", 25))
+        cloud = float(data.get("cloud", 0))
+        humidity = float(data.get("humidity", 50))
+
+        # Dynamic irradiance formula
+        irradiance = (
+            1000
+            - (cloud * 7)
+            - (humidity * 2)
+            + (temp * 3)
+        )
+
+        irradiance = max(50, min(irradiance, 1000))
+
+        return round(irradiance, 2)
 
     except Exception as e:
-        print("ML ERROR:", e)
-        return 50.0
+
+        print("PREDICTION ERROR:", e)
+
+        return 300
 
 
 # =========================================================
