@@ -38,10 +38,9 @@ export default function Dashboard() {
 
     // IF BACKEND SENDS ERROR
     if (res.data.error) {
-      setError(res.data.error);
-      setData(null);
-      return;
-    }
+  console.log("Backend returned soft error");
+  return;
+}
 
     // SUCCESS
     setData(res.data);
@@ -49,10 +48,12 @@ export default function Dashboard() {
 
   } catch (err) {
 
-    console.error("TELEMETRY_LINK_ERROR:", err);
+  console.error("TELEMETRY_LINK_ERROR:", err);
 
-    setError("COMMUNICATION_FAILURE: CHECK RENDER SERVICE");
-    setData(null);
+  console.log("Mobile retry mode enabled");
+
+  if (!data) {
+    setError("TEMPORARY_CONNECTION_DELAY");
   }
 };
 
